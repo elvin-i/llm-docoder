@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
+DOCKER_BUILDKIT=1 docker build -t llm-docoder:latest docker
+
 set -euo pipefail
 
-IMAGE="registry.cn-beijing.aliyuncs.com/buukle-library/llm-docoder:latest"
-
-echo "🐳 正在开始拉取镜像 $IMAGE ..."
-docker pull $IMAGE
+IMAGE="llm-docoder:latest"
 
 echo "🐳 检查当前运行的 $IMAGE 容器..."
 
