@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-IMAGE="llm-dev:latest"
+IMAGE="llm-docoder:latest"
 
 echo "🐳 检查当前运行的 $IMAGE 容器..."
 
@@ -50,5 +50,5 @@ echo "🚀 启动容器 $CONTAINER_NAME ..."
 docker run -it --rm \
   --name "$CONTAINER_NAME" \
   -v "$LOCAL_WORKSPACE:/workspace" \
-  -v llm-dev-data:/root/.llm \
-  llm-dev:latest
+  -v llm-docoder-data:/root/.llm \
+  llm-docoder:latest
