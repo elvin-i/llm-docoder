@@ -39,8 +39,12 @@ RUN mkdir -p /workspace \
 
 COPY container/entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY container/llm-docoder-setup /usr/local/bin/llm-docoder-setup
+COPY container/claude-api-key-helper.sh /usr/local/bin/claude-api-key-helper.sh
+RUN chmod +x /usr/local/bin/claude-api-key-helper.sh
+
 COPY container/wrappers/opencode /usr/local/bin/opencode
 COPY container/wrappers/claude /usr/local/bin/claude
+
 
 RUN chmod +x \
   /usr/local/bin/entrypoint.sh \

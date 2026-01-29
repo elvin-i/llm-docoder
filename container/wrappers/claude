@@ -11,7 +11,9 @@ if [[ -f "$ENV_FILE" ]]; then
   set +a
 fi
 
-# Claude installer usually puts it in ~/.local/bin/claude
+# IMPORTANT: Avoid auth conflict. We want apiKeyHelper to be the ONLY auth source.
+unset ANTHROPIC_API_KEY
+
 REAL=""
 if [[ -x "/root/.local/bin/claude" ]]; then
   REAL="/root/.local/bin/claude"
