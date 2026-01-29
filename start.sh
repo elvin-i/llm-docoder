@@ -1,57 +1,39 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-IMAGE="registry.cn-beijing.aliyuncs.com/buukle-library/llm-docoder:latest"
+IMAGE_NAME="llm-docoder:latest"
 
-echo "🐳 正在开始拉取镜像 $IMAGE ..."
-docker pull $IMAGE
-
-echo "🐳 检查当前运行的 $IMAGE 容器..."
-
-CONTAINERS=$(docker ps --filter "ancestor=$IMAGE" --format "{{.Names}} {{.Mounts}}")
-CONTAINER_NAMES=()
-i=1
-
-if [ -n "$CONTAINERS" ]; then
-  echo "当前运行的容器："
-  while read -r line; do
-    NAME=$(echo "$line" | awk '{print $1}')
-    MOUNTS=$(echo "$line" | cut -d' ' -f2-)
-    echo "  [$i] $NAME (挂载: $MOUNTS)"
-    CONTAINER_NAMES[$i]="$NAME"
-    ((i++))
-  done <<< "$CONTAINERS"
-  echo "  [n] 启动新容器"
+read -r -p "请输入容器名称: " CONTAINER_NAME
+if [[ -z "${CONTAINER_NAME}" ]]; then
+  echo "容器名称不能为空"
+  exit 1
 fi
 
-read -r -p "请选择容器编号或 n 新建容器: " choice
-
-if [[ "$choice" != "n" && -n "${CONTAINER_NAMES[$choice]:-}" ]]; then
-  docker exec -it "${CONTAINER_NAMES[$choice]}" bash
-  exit 0
+read -r -p "请输入 workspace 挂载的宿主机路径(例如 /Users/you/workspace): " HOST_WORKSPACE
+if [[ -z "${HOST_WORKSPACE}" ]]; then
+  echo "workspace 路径不能为空"
+  exit 1
 fi
 
-read -r -p "请输入新容器名称: " CONTAINER_NAME
-read -r -p "请输入本地 workspace 目录（绝对路径）: " LOCAL_WORKSPACE
+HOST_WORKSPACE="${HOST_WORKSPACE/#\~/$HOME}"
 
-EXISTING=$(docker ps --filter "ancestor=$IMAGE" --format "{{.Names}} {{.Mounts}}" | grep -F "$LOCAL_WORKSPACE" | awk '{print $1}' || true)
-if [ -n "$EXISTING" ]; then
-  echo "⚠️ 注意: 该目录已被容器 $EXISTING 挂载"
-  read -r -p "是否直接进入该容器？(y/n): " enter_existing
-  if [[ "$enter_existing" == "y" ]]; then
-    docker exec -it "$EXISTING" bash
-    exit 0
-  fi
+if [[ ! -d "${HOST_WORKSPACE}" ]]; then
+  echo "workspace 路径不存在，尝试创建: ${HOST_WORKSPACE}"
+  mkdir -p "${HOST_WORKSPACE}"
 fi
 
-if [ ! -d "$LOCAL_WORKSPACE" ]; then
-  echo "目录不存在，正在创建..."
-  mkdir -p "$LOCAL_WORKSPACE"
+if docker ps -a --format '{{.Names}}' | grep -qx "${CONTAINER_NAME}"; then
+  echo "已存在同名容器: ${CONTAINER_NAME}"
+  echo "请先删除或换个名字：docker rm -f ${CONTAINER_NAME}"
+  exit 1
 fi
 
-echo "🚀 启动容器 $CONTAINER_NAME ..."
-docker run -it --rm \
-  --name "$CONTAINER_NAME" \
-  -v "$LOCAL_WORKSPACE:/workspace" \
-  -v llm-docoder-data:/root/.llm \
-  $IMAGE
+echo ""
+echo "启动容器: ${CONTAINER_NAME}"
+echo "挂载: ${HOST_WORKSPACE} -> /workspace"
+echo ""
+
+docker run -it \
+  --name "${CONTAINER_NAME}" \
+  -v "${HOST_WORKSPACE}:/workspace" \
+  "${IMAGE_NAME}"

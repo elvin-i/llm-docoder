@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+export PATH="/usr/local/bin:${PATH}"
+
+ENV_FILE="/root/.config/llm-docoder/env.sh"
+if [[ -f "$ENV_FILE" ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
+  set +a
+fi
+
+# Claude installer usually puts it in ~/.local/bin/claude
+REAL=""
+if [[ -x "/root/.local/bin/claude" ]]; then
+  REAL="/root/.local/bin/claude"
+elif command -v claude >/dev/null 2>&1; then
+  REAL="$(command -v claude)"
+fi
+
+if [[ -z "${REAL}" ]]; then
+  echo "[claude wrapper] Cannot find claude binary."
+  exit 1
+fi
+
+exec "${REAL}" "$@"

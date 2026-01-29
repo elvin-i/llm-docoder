@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# keep wrapper first
+export PATH="/usr/local/bin:${PATH}"
+
+ENV_FILE="/root/.config/llm-docoder/env.sh"
+if [[ -f "$ENV_FILE" ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
+  set +a
+fi
+
+# find real opencode binary (avoid recursion)
+REAL=""
+if [[ -x "/root/.opencode/bin/opencode" ]]; then
+  REAL="/root/.opencode/bin/opencode"
+elif [[ -x "/root/.local/bin/opencode" ]]; then
+  REAL="/root/.local/bin/opencode"
+else
+  echo "[opencode wrapper] Cannot find real opencode binary."
+  echo "Checked: /root/.opencode/bin/opencode and /root/.local/bin/opencode"
+  exit 1
+fi
+
+exec "${REAL}" "$@"
