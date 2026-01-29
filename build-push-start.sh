@@ -2,6 +2,10 @@
 set -euo pipefail
 
 IMAGE_NAME="llm-docoder:latest"
+docker build -t ${IMAGE_NAME} .
+
+docker tag ${IMAGE_NAME} registry.cn-beijing.aliyuncs.com/buukle-library/${IMAGE_NAME}
+# docker push registry.cn-beijing.aliyuncs.com/buukle-library/llm-docoder:latest
 
 read -r -p "请输入容器名称: " CONTAINER_NAME
 if [[ -z "${CONTAINER_NAME}" ]]; then
