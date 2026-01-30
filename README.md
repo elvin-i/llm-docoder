@@ -64,6 +64,13 @@ llm-docoder-setup
 claude
 opencode
 ```
+claude界面
+
+![claudecode.png](images/claudecode.png)
+
+opencode 界面
+
+![opencode.png](images/opencode.png)
 
 如果你修改了 OpenCode 配置后行为异常，可清缓存：
 
