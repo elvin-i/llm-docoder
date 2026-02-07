@@ -13,6 +13,36 @@ CLAUDE_KEY_HELPER="/usr/local/bin/claude-api-key-helper.sh"
 
 mkdir -p "${ENV_DIR}" "${OPENCODE_CFG_DIR}" "${CLAUDE_DIR}"
 
+# Read an existing value for a variable from (1) current env, then (2) ENV_FILE.
+existing_var() {
+  local var="$1"
+
+  # Prefer current environment (entrypoint sources ENV_FILE already)
+  local current="${!var-}"
+  if [[ -n "${current}" ]]; then
+    printf '%s' "${current}"
+    return 0
+  fi
+
+  [[ -f "${ENV_FILE}" ]] || return 0
+
+  # Use a subshell to avoid nounset pitfalls.
+  bash -c "set +u; source \"${ENV_FILE}\" >/dev/null 2>&1; printf '%s' \"\${${var}-}\"" || true
+}
+
+mask_key() {
+  local key="$1"
+  local prefix_len=6
+  local suffix_len=4
+  local stars="*******"
+
+  if (( ${#key} <= prefix_len + suffix_len )); then
+    printf '%s' "${key}"
+  else
+    printf '%s%s%s' "${key:0:prefix_len}" "${stars}" "${key: -suffix_len}"
+  fi
+}
+
 # Read secret input with '*' masking (Enter ends input)
 read_secret() {
   local prompt="$1"
@@ -53,6 +83,30 @@ read_secret() {
   printf -v "$outvar" "%s" "$secret"
 }
 
+prompt_api_key() {
+  local label="$1"   # e.g. OpenAI API Key
+  local var="$2"     # e.g. OPENAI_API_KEY
+  local outvar="$3"  # where to store final value
+
+  local existing=""
+  existing="$(existing_var "${var}")"
+
+  local input=""
+  if [[ -n "${existing}" ]]; then
+    local masked=""
+    masked="$(mask_key "${existing}")"
+    read_secret "${label} (${var}) [${masked}]: " input
+    if [[ -z "${input}" ]]; then
+      printf -v "${outvar}" '%s' "${existing}"
+    else
+      printf -v "${outvar}" '%s' "${input}"
+    fi
+  else
+    read_secret "${label} (${var}) [Enter to skip]: " input
+    printf -v "${outvar}" '%s' "${input}"
+  fi
+}
+
 echo ""
 echo "=== llm-docoder setup ==="
 echo ""
@@ -61,9 +115,9 @@ OPENAI_API_KEY_INPUT=""
 DASHSCOPE_API_KEY_INPUT=""
 ANTHROPIC_API_KEY_INPUT=""
 
-read_secret "OpenAI API Key (OPENAI_API_KEY) [Enter to skip]: " OPENAI_API_KEY_INPUT
-read_secret "DashScope API Key (DASHSCOPE_API_KEY) [Enter to skip]: " DASHSCOPE_API_KEY_INPUT
-read_secret "Anthropic API Key (ANTHROPIC_API_KEY) [Enter to skip]: " ANTHROPIC_API_KEY_INPUT
+prompt_api_key "OpenAI API Key" "OPENAI_API_KEY" OPENAI_API_KEY_INPUT
+prompt_api_key "DashScope API Key" "DASHSCOPE_API_KEY" DASHSCOPE_API_KEY_INPUT
+prompt_api_key "Anthropic API Key" "ANTHROPIC_API_KEY" ANTHROPIC_API_KEY_INPUT
 
 echo ""
 echo "DashScope (OpenAI-compatible) baseURL options:"
