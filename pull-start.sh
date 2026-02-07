@@ -4,43 +4,73 @@ set -eu
 IMAGE_NAME="llm-docoder:latest"
 REMOTE_IMAGE="registry.cn-beijing.aliyuncs.com/buukle-library/${IMAGE_NAME}"
 CONTAINER_PREFIX="llm-docoder"
+MANAGED_LABEL="llm-docoder.managed=1"
+
+DOCKER_START_TIMEOUT_SECONDS="${DOCKER_START_TIMEOUT_SECONDS:-180}"
+
+need_cmd() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "❌ 未找到命令: $1"
+    exit 1
+  fi
+}
+
+ensure_docker_ready() {
+  # Fast path
+  if docker info >/dev/null 2>&1; then
+    echo "✅ Docker 已就绪"
+    return 0
+  fi
+
+  OS="$(uname -s 2>/dev/null || echo unknown)"
+
+  if [ "${OS}" = "Darwin" ]; then
+    if [ ! -d "/Applications/Docker.app" ]; then
+      echo "❌ 未检测到 Docker Desktop（/Applications/Docker.app）"
+      echo "请先安装 Docker Desktop 后再运行本脚本"
+      exit 1
+    fi
+
+    echo "🐳 Docker Desktop 未启动，正在启动..."
+    # macOS only
+    open -a Docker >/dev/null 2>&1 || true
+
+    printf "⏳ 等待 Docker Desktop 启动"
+    i=0
+    while ! docker info >/dev/null 2>&1; do
+      i=$((i + 1))
+      if [ $((i * 2)) -ge "${DOCKER_START_TIMEOUT_SECONDS}" ]; then
+        echo ""
+        echo "❌ 等待超时（${DOCKER_START_TIMEOUT_SECONDS}s）。请手动启动 Docker Desktop 后重试。"
+        exit 1
+      fi
+      printf "."
+      sleep 2
+    done
+    echo ""
+    echo "✅ Docker Desktop 已启动"
+    return 0
+  fi
+
+  echo "❌ Docker 未就绪（docker info 失败）。"
+  echo "请先启动 Docker daemon/Engine（例如 Docker Desktop 或 docker service）后重试。"
+  exit 1
+}
+
+need_cmd docker
+ensure_docker_ready
 
 echo "📦 拉取镜像: ${REMOTE_IMAGE}"
 docker pull "${REMOTE_IMAGE}"
 
 #######################################
-# 1. 检查 Docker Desktop 是否存在（macOS）
+# 1. 查找已创建的容器（兼容旧版本）
 #######################################
-if [ ! -d "/Applications/Docker.app" ]; then
-  echo "❌ 未检测到 Docker Desktop（/Applications/Docker.app）"
-  echo "请先安装 Docker Desktop 后再运行本脚本"
-  exit 1
-fi
-
-#######################################
-# 2. 检查 Docker 是否启动
-#######################################
-if ! docker info >/dev/null 2>&1; then
-  echo "🐳 Docker Desktop 未启动，正在启动..."
-  open -a Docker
-
-  printf "⏳ 等待 Docker Desktop 启动"
-  while ! docker info >/dev/null 2>&1; do
-    printf "..."
-    sleep 2
-  done
-  echo ""
-  echo "✅ Docker Desktop 已启动"
-else
-  echo "✅ Docker Desktop 已就绪"
-fi
-
-#######################################
-# 3. 查找基于同一镜像的容器（sh 无数组方案）
-#######################################
-EXISTING_CONTAINERS="$(docker ps -a \
-  --filter "ancestor=${IMAGE_NAME}" \
-  --format "{{.Names}}" || true)"
+EXISTING_CONTAINERS="$({
+  docker ps -a --filter "label=${MANAGED_LABEL}" --format "{{.Names}}" 2>/dev/null || true
+  docker ps -a --filter "ancestor=${REMOTE_IMAGE}" --format "{{.Names}}" 2>/dev/null || true
+  docker ps -a --filter "ancestor=${IMAGE_NAME}" --format "{{.Names}}" 2>/dev/null || true
+} | sed '/^$/d' | sort -u)"
 
 if [ -n "${EXISTING_CONTAINERS}" ]; then
   echo ""
@@ -81,7 +111,7 @@ else
 fi
 
 #######################################
-# 4. 新建容器流程
+# 2. 新建容器流程
 #######################################
 DEFAULT_CONTAINER_NAME="${CONTAINER_PREFIX}-$(date +%Y%m%d%H%M%S)"
 printf "请输入容器名称 [默认: %s]: " "${DEFAULT_CONTAINER_NAME}"
@@ -117,7 +147,7 @@ if [ ! -d "${HOST_WORKSPACE}" ]; then
 fi
 
 #######################################
-# 5. 启动新容器
+# 3. 启动新容器
 #######################################
 echo ""
 echo "🚀 启动新容器:"
@@ -127,5 +157,6 @@ echo ""
 
 exec docker run -it \
   --name "${CONTAINER_NAME}" \
+  --label "${MANAGED_LABEL}" \
   -v "${HOST_WORKSPACE}:/workspace" \
   "${REMOTE_IMAGE}"

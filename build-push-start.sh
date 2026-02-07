@@ -2,10 +2,67 @@
 set -euo pipefail
 
 IMAGE_NAME="llm-docoder:latest"
-docker build -t ${IMAGE_NAME} .
+REMOTE_IMAGE="registry.cn-beijing.aliyuncs.com/buukle-library/${IMAGE_NAME}"
+MANAGED_LABEL="llm-docoder.managed=1"
 
-docker tag ${IMAGE_NAME} registry.cn-beijing.aliyuncs.com/buukle-library/${IMAGE_NAME}
-# docker push registry.cn-beijing.aliyuncs.com/buukle-library/llm-docoder:latest
+DOCKER_START_TIMEOUT_SECONDS="${DOCKER_START_TIMEOUT_SECONDS:-180}"
+
+need_cmd() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "❌ 未找到命令: $1"
+    exit 1
+  fi
+}
+
+ensure_docker_ready() {
+  if docker info >/dev/null 2>&1; then
+    echo "✅ Docker 已就绪"
+    return 0
+  fi
+
+  local os
+  os="$(uname -s 2>/dev/null || echo unknown)"
+  if [[ "${os}" == "Darwin" ]]; then
+    if [[ ! -d "/Applications/Docker.app" ]]; then
+      echo "❌ 未检测到 Docker Desktop（/Applications/Docker.app）"
+      echo "请先安装 Docker Desktop 后再运行本脚本"
+      exit 1
+    fi
+
+    echo "🐳 Docker Desktop 未启动，正在启动..."
+    open -a Docker >/dev/null 2>&1 || true
+
+    printf "⏳ 等待 Docker Desktop 启动"
+    local i=0
+    while ! docker info >/dev/null 2>&1; do
+      i=$((i + 1))
+      if (( i * 2 >= DOCKER_START_TIMEOUT_SECONDS )); then
+        echo ""
+        echo "❌ 等待超时（${DOCKER_START_TIMEOUT_SECONDS}s）。请手动启动 Docker Desktop 后重试。"
+        exit 1
+      fi
+      printf "."
+      sleep 2
+    done
+    echo ""
+    echo "✅ Docker Desktop 已启动"
+    return 0
+  fi
+
+  echo "❌ Docker 未就绪（docker info 失败）。"
+  echo "请先启动 Docker daemon/Engine（例如 Docker Desktop 或 docker service）后重试。"
+  exit 1
+}
+
+need_cmd docker
+ensure_docker_ready
+
+echo "🔨 构建镜像: ${IMAGE_NAME}"
+docker build -t "${IMAGE_NAME}" .
+
+echo "🏷️  打 tag: ${REMOTE_IMAGE}"
+docker tag "${IMAGE_NAME}" "${REMOTE_IMAGE}"
+# docker push "${REMOTE_IMAGE}"
 
 read -r -p "请输入容器名称: " CONTAINER_NAME
 if [[ -z "${CONTAINER_NAME}" ]]; then
@@ -39,5 +96,6 @@ echo ""
 
 docker run -it \
   --name "${CONTAINER_NAME}" \
+  --label "${MANAGED_LABEL}" \
   -v "${HOST_WORKSPACE}:/workspace" \
   "${IMAGE_NAME}"

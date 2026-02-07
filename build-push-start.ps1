@@ -3,6 +3,82 @@ $ErrorActionPreference = "Stop"
 
 $IMAGE_NAME = "llm-docoder:latest"
 $REMOTE_IMAGE = "registry.cn-beijing.aliyuncs.com/buukle-library/$IMAGE_NAME"
+$MANAGED_LABEL = "llm-docoder.managed=1"
+
+function Need-Command {
+    param([Parameter(Mandatory = $true)][string]$Name)
+    if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
+        Write-Error "❌ 未找到命令: $Name"
+        exit 1
+    }
+}
+
+function Get-DockerDesktopExe {
+    $candidates = @(
+        "$Env:ProgramFiles\Docker\Docker\Docker Desktop.exe",
+        "$Env:ProgramFiles(x86)\Docker\Docker\Docker Desktop.exe"
+    )
+
+    foreach ($p in $candidates) {
+        if ($p -and (Test-Path $p)) {
+            return $p
+        }
+    }
+    return $null
+}
+
+function Ensure-DockerReady {
+    param([int]$TimeoutSeconds = 180)
+
+    function Test-DockerReady {
+        & docker info 1>$null 2>$null
+        return ($LASTEXITCODE -eq 0)
+    }
+
+    if (Test-DockerReady) {
+        Write-Host "✅ Docker 已就绪"
+        return
+    }
+
+    $dockerDesktopExe = Get-DockerDesktopExe
+    if ($dockerDesktopExe) {
+        Write-Host "🐳 Docker Desktop 未启动，正在启动..."
+        Start-Process -FilePath $dockerDesktopExe | Out-Null
+    }
+    else {
+        Write-Host "❌ Docker 未就绪（docker info 失败），且未检测到 Docker Desktop。"
+        Write-Host "请先启动 Docker Engine/Docker Desktop 后重试。"
+        exit 1
+    }
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    Write-Host -NoNewline "⏳ 等待 Docker Desktop 启动"
+
+    while ($true) {
+        if ((Get-Date) -ge $deadline) {
+            Write-Host ""
+            Write-Error "❌ 等待超时（${TimeoutSeconds}s）。请手动确认 Docker Desktop 已启动后重试。"
+            exit 1
+        }
+
+        if (Test-DockerReady) {
+            break
+        }
+
+        Write-Host -NoNewline "."
+        Start-Sleep -Seconds 2
+    }
+
+    Write-Host ""
+    Write-Host "✅ Docker Desktop 已启动"
+}
+
+Need-Command docker
+$timeoutSeconds = 180
+if ($Env:DOCKER_START_TIMEOUT_SECONDS -match '^\d+$') {
+    $timeoutSeconds = [int]$Env:DOCKER_START_TIMEOUT_SECONDS
+}
+Ensure-DockerReady -TimeoutSeconds $timeoutSeconds
 
 #######################################
 # 1. build & tag
@@ -58,5 +134,6 @@ Write-Host ""
 
 docker run -it `
   --name $containerName `
+  --label $MANAGED_LABEL `
   -v "${hostWorkspace}:/workspace" `
   $IMAGE_NAME
