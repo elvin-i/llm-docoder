@@ -103,7 +103,19 @@ if [ -n "${EXISTING_CONTAINERS}" ]; then
         exit 1
       fi
       echo "➡️ 进入已有容器: ${TARGET_CONTAINER}"
-      exec docker start -ai "${TARGET_CONTAINER}"
+      # 不使用 attach：避免 exit 退出时让容器主进程结束
+      # 先确保容器在后台运行，然后 exec 进入交互 shell
+      if [ "$(docker inspect -f '{{.State.Running}}' "${TARGET_CONTAINER}" 2>/dev/null || echo false)" != "true" ]; then
+        docker start "${TARGET_CONTAINER}" >/dev/null
+      fi
+
+      if [ "$(docker inspect -f '{{.State.Running}}' "${TARGET_CONTAINER}" 2>/dev/null || echo false)" != "true" ]; then
+        echo "❌ 容器启动后立即退出（主进程未保持运行）。"
+        echo "建议用本脚本重新创建一个新容器（会以 -d 后台模式启动）。"
+        exit 1
+      fi
+
+      exec docker exec -it "${TARGET_CONTAINER}" bash
       ;;
   esac
 else
@@ -176,9 +188,12 @@ echo "  挂载: ${HOST_WORKSPACE} -> /workspace"
 echo "  挂载: ${HOST_KEY_DIR} -> /root/.config/llm-docoder (env.sh)"
 echo ""
 
-exec docker run -it \
+ # 后台启动容器：保持主进程运行；随后通过 docker exec 进入
+ docker run -dit \
   --name "${CONTAINER_NAME}" \
   --label "${MANAGED_LABEL}" \
   -v "${HOST_WORKSPACE}:/workspace" \
   -v "${HOST_KEY_DIR}:/root/.config/llm-docoder" \
-  "${REMOTE_IMAGE}"
+  "${REMOTE_IMAGE}" >/dev/null
+
+ exec docker exec -it "${CONTAINER_NAME}" bash

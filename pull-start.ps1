@@ -115,7 +115,34 @@ if ($existing) {
 
         $target = $containers[[int]$choice - 1]
         Write-Host "➡️ 进入已有容器: $target"
-        docker start -ai $target
+
+        # 不使用 attach：避免在容器内 exit 时让主进程结束导致容器停止
+        $running = ""
+        try {
+            $running = (docker inspect -f '{{.State.Running}}' $target 2>$null).Trim()
+        }
+        catch {
+            $running = ""
+        }
+
+        if ($running -ne "true") {
+            docker start $target | Out-Null
+        }
+
+        $runningAfter = ""
+        try {
+            $runningAfter = (docker inspect -f '{{.State.Running}}' $target 2>$null).Trim()
+        }
+        catch {
+            $runningAfter = ""
+        }
+
+        if ($runningAfter -ne "true") {
+            Write-Error "❌ 容器启动后立即退出（主进程未保持运行）。建议新建容器（会以 -d 后台模式启动）。"
+            exit 1
+        }
+
+        docker exec -it $target bash
         exit 0
     }
     else {
@@ -176,9 +203,11 @@ Write-Host "  挂载: $hostWorkspace -> /workspace"
 Write-Host "  挂载: $hostKeyDir -> /root/.config/llm-docoder (env.sh)"
 Write-Host ""
 
-docker run -it `
+docker run -dit `
   --name $containerName `
   --label $MANAGED_LABEL `
   -v "${hostWorkspace}:/workspace" `
   -v "${hostKeyDir}:/root/.config/llm-docoder" `
-  $REMOTE_IMAGE
+  $REMOTE_IMAGE | Out-Null
+
+docker exec -it $containerName bash

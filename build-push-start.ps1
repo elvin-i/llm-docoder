@@ -147,9 +147,11 @@ Write-Host "📂 挂载: $hostWorkspace -> /workspace"
 Write-Host "📂 挂载: $hostKeyDir -> /root/.config/llm-docoder (env.sh)"
 Write-Host ""
 
-docker run -it `
+docker run -dit `
   --name $containerName `
   --label $MANAGED_LABEL `
   -v "${hostWorkspace}:/workspace" `
   -v "${hostKeyDir}:/root/.config/llm-docoder" `
-  $IMAGE_NAME
+  $IMAGE_NAME | Out-Null
+
+docker exec -it $containerName bash

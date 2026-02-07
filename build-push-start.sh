@@ -106,9 +106,12 @@ echo "挂载: ${HOST_WORKSPACE} -> /workspace"
 echo "挂载: ${HOST_KEY_DIR} -> /root/.config/llm-docoder (env.sh)"
 echo ""
 
-docker run -it \
+# 后台启动容器：避免退出 shell 时容器停止；随后通过 docker exec 进入
+docker run -dit \
   --name "${CONTAINER_NAME}" \
   --label "${MANAGED_LABEL}" \
   -v "${HOST_WORKSPACE}:/workspace" \
   -v "${HOST_KEY_DIR}:/root/.config/llm-docoder" \
-  "${IMAGE_NAME}"
+  "${IMAGE_NAME}" >/dev/null
+
+exec docker exec -it "${CONTAINER_NAME}" bash
