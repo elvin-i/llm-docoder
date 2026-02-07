@@ -153,16 +153,32 @@ if (-not (Test-Path $hostWorkspace)) {
 }
 
 #######################################
-# 5. 启动容器
+# 5. api-key 持久化目录
+#######################################
+$defaultKeyDir = Join-Path $HOME ".llm-docoder"
+$hostKeyDir = Read-Host "请输入 api-key 持久化目录 [默认: $defaultKeyDir]"
+if (-not $hostKeyDir) {
+    $hostKeyDir = $defaultKeyDir
+}
+
+if (-not (Test-Path $hostKeyDir)) {
+    Write-Host "📁 api-key 目录不存在，创建目录: $hostKeyDir"
+    New-Item -ItemType Directory -Path $hostKeyDir -Force | Out-Null
+}
+
+#######################################
+# 6. 启动容器
 #######################################
 Write-Host ""
 Write-Host "🚀 启动新容器:"
 Write-Host "  容器名: $containerName"
 Write-Host "  挂载: $hostWorkspace -> /workspace"
+Write-Host "  挂载: $hostKeyDir -> /root/.config/llm-docoder (env.sh)"
 Write-Host ""
 
 docker run -it `
   --name $containerName `
   --label $MANAGED_LABEL `
   -v "${hostWorkspace}:/workspace" `
+  -v "${hostKeyDir}:/root/.config/llm-docoder" `
   $REMOTE_IMAGE

@@ -146,6 +146,26 @@ if [ ! -d "${HOST_WORKSPACE}" ]; then
   mkdir -p "${HOST_WORKSPACE}"
 fi
 
+# Persist API keys/config (env.sh) on host
+DEFAULT_KEY_DIR="${HOME}/.llm-docoder"
+printf "请输入 api-key 持久化目录 [默认: %s]: " "${DEFAULT_KEY_DIR}"
+read HOST_KEY_DIR
+if [ -z "${HOST_KEY_DIR}" ]; then
+  HOST_KEY_DIR="${DEFAULT_KEY_DIR}"
+fi
+
+# 处理 ~
+case "${HOST_KEY_DIR}" in
+  "~"|"~/"*)
+    HOST_KEY_DIR="${HOME}${HOST_KEY_DIR#\~}"
+    ;;
+esac
+
+if [ ! -d "${HOST_KEY_DIR}" ]; then
+  echo "📁 api-key 目录不存在，尝试创建: ${HOST_KEY_DIR}"
+  mkdir -p "${HOST_KEY_DIR}"
+fi
+
 #######################################
 # 3. 启动新容器
 #######################################
@@ -153,10 +173,12 @@ echo ""
 echo "🚀 启动新容器:"
 echo "  容器名: ${CONTAINER_NAME}"
 echo "  挂载: ${HOST_WORKSPACE} -> /workspace"
+echo "  挂载: ${HOST_KEY_DIR} -> /root/.config/llm-docoder (env.sh)"
 echo ""
 
 exec docker run -it \
   --name "${CONTAINER_NAME}" \
   --label "${MANAGED_LABEL}" \
   -v "${HOST_WORKSPACE}:/workspace" \
+  -v "${HOST_KEY_DIR}:/root/.config/llm-docoder" \
   "${REMOTE_IMAGE}"
