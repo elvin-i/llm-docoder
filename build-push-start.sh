@@ -62,7 +62,7 @@ docker build -t "${IMAGE_NAME}" .
 
 echo "🏷️  打 tag: ${REMOTE_IMAGE}"
 docker tag "${IMAGE_NAME}" "${REMOTE_IMAGE}"
-# docker push "${REMOTE_IMAGE}"
+docker push "${REMOTE_IMAGE}"
 
 read -r -p "请输入容器名称: " CONTAINER_NAME
 if [[ -z "${CONTAINER_NAME}" ]]; then
