@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   && rm -rf /var/lib/apt/lists/*
 
 # ---- Pin versions ----
-ARG OPENCODE_VERSION=1.14.29
+ARG OPENCODE_VERSION=1.15.12
 ARG CLAUDE_VERSION=2.1.23
 
 # Install Claude Code (pinned): installer accepts a specific version argument
