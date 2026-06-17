@@ -1,5 +1,5 @@
 ARG BASE_IMAGE=ubuntu:24.04
-FROM --platform=$TARGETPLATFORM ${BASE_IMAGE}
+FROM ${BASE_IMAGE}
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=C.UTF-8
@@ -15,10 +15,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     bash ca-certificates curl git jq openssh-client \
     tzdata unzip xz-utils tar gzip \
     openjdk-21-jdk maven \
-  && rm -rf /var/lib/apt/lists/*
+    python3 python3-pip python3-venv \
+  && rm -rf /var/lib/apt/lists/* \
+  && ln -sf /usr/bin/python3 /usr/bin/python
 
 # ---- Install nvm + Node.js 22 LTS ----
-ENV NVM_DIR /root/.nvm
+ENV NVM_DIR=/root/.nvm
 RUN curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
 
 RUN . $NVM_DIR/nvm.sh && nvm install 22 && nvm alias default 22

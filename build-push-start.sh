@@ -66,10 +66,19 @@ docker buildx inspect llm-docoder-builder >/dev/null 2>&1 || \
   docker buildx create --name llm-docoder-builder --use
 docker buildx use llm-docoder-builder
 
+BUILDX_CACHE_DIR="${HOME:-/root}/.cache/buildx"
+mkdir -p "${BUILDX_CACHE_DIR}"
+
+CACHE_FROM=""
+[[ -f "${BUILDX_CACHE_DIR}/index.json" ]] && CACHE_FROM="--cache-from type=local,src=${BUILDX_CACHE_DIR}"
+
 echo "🔨 构建并推送多架构镜像 (linux/amd64, linux/arm64)"
+# shellcheck disable=SC2086
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
   -t "${REMOTE_IMAGE}" \
+  ${CACHE_FROM} \
+  --cache-to "type=local,dest=${BUILDX_CACHE_DIR},mode=max" \
   --push \
   .
 

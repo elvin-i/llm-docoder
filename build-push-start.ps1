@@ -166,10 +166,20 @@ if ($LASTEXITCODE -ne 0) {
 }
 Assert-LastExitCode "docker buildx setup"
 
+$buildxCacheDir = Join-Path $HOME ".cache" "buildx"
+New-Item -ItemType Directory -Path $buildxCacheDir -Force | Out-Null
+
+$cacheFromArg = "--cache-from", "type=local,src=$buildxCacheDir"
+if (-not (Test-Path (Join-Path $buildxCacheDir "index.json"))) {
+    $cacheFromArg = @()
+}
+
 Write-Host "🔨 构建并推送多架构镜像 (linux/amd64, linux/arm64)"
-docker buildx build `
+& docker buildx build `
   --platform linux/amd64,linux/arm64 `
   -t $REMOTE_IMAGE `
+  @cacheFromArg `
+  --cache-to "type=local,dest=$buildxCacheDir,mode=max" `
   --push `
   .
 Assert-LastExitCode "docker buildx build --platform ..."

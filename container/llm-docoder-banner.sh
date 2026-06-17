@@ -22,6 +22,7 @@ echo ""
 opencode_ver=$(opencode --version 2>/dev/null || echo "not found")
 claude_ver=$(claude --version 2>/dev/null || echo "not found")
 java_ver=$(java -version 2>&1 | head -1 || echo "not found")
+python_ver=$(python3 --version 2>/dev/null || echo "not found")
 maven_ver=$(mvn --version 2>&1 | head -1 || echo "not found")
 node_ver=$(node --version 2>/dev/null || echo "not found")
 npm_ver=$(npm --version 2>/dev/null || echo "not found")
@@ -35,6 +36,7 @@ fi
 echo " OpenCode:  $opencode_ver"
 echo " Claude:    $claude_ver"
 echo " Java:      $java_ver"
+echo " Python:    $python_ver"
 echo " Maven:     $maven_ver"
 echo " Node:      $node_ver"
 echo " npm:       $npm_ver"
