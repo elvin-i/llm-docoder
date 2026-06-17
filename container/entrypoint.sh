@@ -11,24 +11,7 @@ if [[ -f "$ENV_FILE" ]]; then
   source "$ENV_FILE"
 fi
 
-cat <<'EOF'
-
-============================================================
-Welcome to llm-docoder container
-
-1) First-time setup (API keys / model config):
-   llm-docoder-setup
-
-2) Claude Code:
-   claude
-
-3) OpenCode:
-   opencode
-
-If OpenCode behaves oddly after config changes:
-  rm -rf ~/.cache/opencode
-============================================================
-
-EOF
+# Print welcome banner
+/usr/local/bin/llm-docoder-banner.sh
 
 exec "$@"

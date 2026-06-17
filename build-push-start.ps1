@@ -157,16 +157,27 @@ Ensure-DockerReady -TimeoutSeconds $timeoutSeconds
 #######################################
 # 1. build & tag
 #######################################
-Write-Host "🔨 构建镜像: $IMAGE_NAME"
-docker build -t $IMAGE_NAME .
-Assert-LastExitCode "docker build -t $IMAGE_NAME ."
+# Ensure buildx is ready for multi-arch builds
+$builderExists = docker buildx inspect llm-docoder-builder 2>$null
+if ($LASTEXITCODE -ne 0) {
+    docker buildx create --name llm-docoder-builder --use | Out-Null
+} else {
+    docker buildx use llm-docoder-builder | Out-Null
+}
+Assert-LastExitCode "docker buildx setup"
 
-Write-Host "🏷️  打 tag: $REMOTE_IMAGE"
-docker tag $IMAGE_NAME $REMOTE_IMAGE
-Assert-LastExitCode "docker tag $IMAGE_NAME $REMOTE_IMAGE"
+Write-Host "🔨 构建并推送多架构镜像 (linux/amd64, linux/arm64)"
+docker buildx build `
+  --platform linux/amd64,linux/arm64 `
+  -t $REMOTE_IMAGE `
+  --push `
+  .
+Assert-LastExitCode "docker buildx build --platform ..."
 
-# 如需 push，取消下面注释
-# docker push $REMOTE_IMAGE
+# Pull local-arch copy for container creation
+docker pull $REMOTE_IMAGE
+Assert-LastExitCode "docker pull $REMOTE_IMAGE"
+docker tag $REMOTE_IMAGE $IMAGE_NAME
 
 #######################################
 # 2. 容器名称

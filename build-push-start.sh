@@ -57,12 +57,25 @@ ensure_docker_ready() {
 need_cmd docker
 ensure_docker_ready
 
-echo "🔨 构建镜像: ${IMAGE_NAME}"
-docker build -t "${IMAGE_NAME}" .
+# Ensure buildx is ready for multi-arch builds
+if ! docker buildx version >/dev/null 2>&1; then
+  echo "❌ 需要 Docker buildx（Docker Desktop 或 buildx 插件）"
+  exit 1
+fi
+docker buildx inspect llm-docoder-builder >/dev/null 2>&1 || \
+  docker buildx create --name llm-docoder-builder --use
+docker buildx use llm-docoder-builder
 
-echo "🏷️  打 tag: ${REMOTE_IMAGE}"
-docker tag "${IMAGE_NAME}" "${REMOTE_IMAGE}"
-docker push "${REMOTE_IMAGE}"
+echo "🔨 构建并推送多架构镜像 (linux/amd64, linux/arm64)"
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  -t "${REMOTE_IMAGE}" \
+  --push \
+  .
+
+# Pull local-arch copy for container creation
+docker pull "${REMOTE_IMAGE}"
+docker tag "${REMOTE_IMAGE}" "${IMAGE_NAME}"
 
 read -r -p "请输入容器名称: " CONTAINER_NAME
 if [[ -z "${CONTAINER_NAME}" ]]; then
