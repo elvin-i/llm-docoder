@@ -61,3 +61,25 @@ Default model priority: `OPENAI_API_KEY` set → `openai/gpt-5.2`, else `dashsco
 ## Key env vars
 
 Written to `/root/.config/llm-docoder/env.sh` by setup: `OPENAI_API_KEY`, `DASHSCOPE_API_KEY`, `ANTHROPIC_API_KEY`; also `CLAUDE_CODE_API_KEY_HELPER_TTL_MS=3600000`.
+
+## Clipboard (OSC 52)
+
+OpenCode copies text to clipboard via **OSC 52** (ANSI escape sequence). Inside the container, this sequence passes through `docker exec -it`'s PTY to your host terminal emulator.
+
+**Requirement**: your host terminal emulator must support OSC 52. The following terminals work:
+
+| Terminal | Platform | Config needed |
+|----------|----------|---------------|
+| iTerm2 | macOS | Preferences → General → Selection → check both "Applications in terminal may access clipboard" |
+| Windows Terminal | Windows | v1.22+ (default) |
+| WezTerm | Win/Mac/Linux | Default |
+| Kitty | Win/Mac/Linux | Default |
+| Alacritty | Win/Mac/Linux | Default |
+| Ghostty | Win/Mac/Linux | `clipboard-write = allow` in config |
+| Terminal.app | macOS | ❌ Not supported |
+| Gnome Terminal | Linux | ❌ Not supported |
+| MobaXterm | Windows | ❌ Not supported |
+
+**tmux inside container**: tmux is pre-installed and `~/.tmux.conf` is configured with `set -g allow-passthrough on` so OSC 52 is not blocked. If you run tmux outside the container, configure it similarly.
+
+**Verify OSC 52 works**: Run `printf '\e]52;;%s\e\\' "$(printf 'hello' | base64)"` inside the container; if your terminal supports OSC 52, pasting should insert "hello".
